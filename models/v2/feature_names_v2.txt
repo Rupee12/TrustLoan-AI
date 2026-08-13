@@ -1,0 +1,13 @@
+num__no_of_dependents
+num__income_annum
+num__loan_amount
+num__loan_term
+num__cibil_score
+num__residential_assets_value
+num__commercial_assets_value
+num__luxury_assets_value
+num__bank_asset_value
+cat__education_ Graduate
+cat__education_ Not Graduate
+cat__self_employed_ No
+cat__self_employed_ Yes

@@ -1,0 +1,3093 @@
+import streamlit as st
+import pandas as pd
+import joblib
+import shap
+import matplotlib.pyplot as plt
+from textwrap import dedent
+import numpy as np
+
+
+# ============================================================
+# PAGE CONFIG
+# ============================================================
+
+st.set_page_config(
+    page_title="TrustLoan AI",
+    page_icon="◈",
+    layout="wide",
+    initial_sidebar_state="collapsed"
+)
+
+
+# ============================================================
+# CUSTOM CSS
+# ============================================================
+
+st.markdown(
+    dedent("""
+    <style>
+
+    /* ======================================================
+       GLOBAL
+       ====================================================== */
+
+    .stApp {
+        background:
+            radial-gradient(
+                circle at 5% 5%,
+                rgba(37, 99, 235, 0.16),
+                transparent 28%
+            ),
+            radial-gradient(
+                circle at 95% 10%,
+                rgba(124, 58, 237, 0.14),
+                transparent 28%
+            ),
+            radial-gradient(
+                circle at 50% 100%,
+                rgba(14, 165, 233, 0.07),
+                transparent 35%
+            ),
+            #060912;
+    }
+
+    .block-container {
+        max-width: 1280px;
+        padding-top: 35px;
+        padding-bottom: 70px;
+    }
+
+    /* Hide Streamlit branding */
+    #MainMenu {
+        visibility: hidden;
+    }
+
+    footer {
+        visibility: hidden;
+    }
+
+    header {
+        background: transparent !important;
+    }
+
+
+    /* ======================================================
+       HERO
+       ====================================================== */
+
+    .hero-wrapper {
+        position: relative;
+        overflow: hidden;
+        padding: 42px 45px;
+        border-radius: 28px;
+
+        background:
+            linear-gradient(
+                135deg,
+                rgba(15, 23, 42, 0.92),
+                rgba(17, 24, 39, 0.72)
+            );
+
+        border: 1px solid rgba(148, 163, 184, 0.12);
+
+        box-shadow:
+            0 25px 70px rgba(0,0,0,0.30),
+            inset 0 1px rgba(255,255,255,0.05);
+
+        backdrop-filter: blur(25px);
+
+        margin-bottom: 30px;
+    }
+
+    .hero-wrapper::before {
+        content: "";
+        position: absolute;
+
+        width: 320px;
+        height: 320px;
+
+        right: -120px;
+        top: -150px;
+
+        background:
+            radial-gradient(
+                circle,
+                rgba(59,130,246,0.30),
+                transparent 70%
+            );
+
+        pointer-events: none;
+    }
+
+    .hero-badge {
+        display: inline-flex;
+
+        padding: 7px 13px;
+
+        border-radius: 999px;
+
+        background:
+            rgba(59,130,246,0.10);
+
+        border:
+            1px solid rgba(96,165,250,0.20);
+
+        color:
+            #93c5fd;
+
+        font-size: 11px;
+        font-weight: 800;
+
+        letter-spacing: 1.7px;
+
+        text-transform: uppercase;
+
+        margin-bottom: 15px;
+    }
+
+    .hero-title {
+        font-size: 46px;
+        line-height: 1.08;
+
+        font-weight: 850;
+
+        letter-spacing: -1.7px;
+
+        color: #f8fafc;
+
+        margin: 0;
+    }
+
+    .hero-title span {
+        background:
+            linear-gradient(
+                90deg,
+                #60a5fa,
+                #a78bfa
+            );
+
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+
+    .hero-description {
+        margin-top: 15px;
+
+        max-width: 720px;
+
+        color: #94a3b8;
+
+        font-size: 15px;
+
+        line-height: 1.7;
+    }
+
+    .hero-status {
+        position: absolute;
+
+        right: 35px;
+        bottom: 30px;
+
+        display: flex;
+
+        align-items: center;
+
+        gap: 8px;
+
+        color: #94a3b8;
+
+        font-size: 11px;
+    }
+
+    .status-dot {
+        width: 7px;
+        height: 7px;
+
+        border-radius: 50%;
+
+        background: #34d399;
+
+        box-shadow:
+            0 0 12px rgba(52,211,153,0.8);
+    }
+
+
+    /* ======================================================
+       STEP INDICATOR
+       ====================================================== */
+
+    .steps {
+        display: flex;
+
+        align-items: center;
+
+        gap: 10px;
+
+        margin: 25px 0 30px;
+    }
+
+    .step {
+        display: flex;
+
+        align-items: center;
+
+        gap: 8px;
+
+        color: #64748b;
+
+        font-size: 12px;
+
+        font-weight: 650;
+    }
+
+    .step.active {
+        color: #e2e8f0;
+    }
+
+    .step-number {
+        display: flex;
+
+        align-items: center;
+        justify-content: center;
+
+        width: 27px;
+        height: 27px;
+
+        border-radius: 50%;
+
+        background: rgba(30,41,59,0.8);
+
+        border: 1px solid rgba(148,163,184,0.14);
+
+        font-size: 11px;
+    }
+
+    .step.active .step-number {
+        background:
+            linear-gradient(
+                135deg,
+                #2563eb,
+                #7c3aed
+            );
+
+        border-color: transparent;
+
+        color: white;
+
+        box-shadow:
+            0 0 20px rgba(59,130,246,0.25);
+    }
+
+    .step-line {
+        width: 55px;
+        height: 1px;
+
+        background:
+            rgba(148,163,184,0.12);
+    }
+
+
+    /* ======================================================
+       SECTION HEADERS
+       ====================================================== */
+
+    .section-heading {
+        display: flex;
+
+        align-items: center;
+
+        gap: 13px;
+
+        margin-bottom: 6px;
+    }
+
+    .section-icon {
+        display: flex;
+
+        align-items: center;
+        justify-content: center;
+
+        width: 38px;
+        height: 38px;
+
+        border-radius: 12px;
+
+        background:
+            linear-gradient(
+                135deg,
+                rgba(59,130,246,0.16),
+                rgba(124,58,237,0.12)
+            );
+
+        border:
+            1px solid rgba(96,165,250,0.12);
+
+        color: #93c5fd;
+
+        font-size: 17px;
+    }
+
+    .section-title {
+        color: #f8fafc;
+
+        font-size: 19px;
+
+        font-weight: 780;
+    }
+
+    .section-description {
+        color: #64748b;
+
+        font-size: 12px;
+
+        margin-left: 51px;
+
+        margin-bottom: 20px;
+    }
+
+
+    /* ======================================================
+       STREAMLIT INPUTS
+       ====================================================== */
+
+    /* Labels */
+
+    div[data-testid="stWidgetLabel"] p {
+        color: #cbd5e1 !important;
+
+        font-size: 12px !important;
+
+        font-weight: 650 !important;
+
+        letter-spacing: 0.1px;
+    }
+
+
+    /* Select boxes */
+
+    div[data-baseweb="select"] > div {
+        min-height: 48px;
+
+        border-radius: 13px !important;
+
+        background:
+            rgba(15,23,42,0.72) !important;
+
+        border:
+            1px solid rgba(148,163,184,0.13) !important;
+
+        transition:
+            all 0.25s ease !important;
+
+        box-shadow:
+            inset 0 1px rgba(255,255,255,0.025);
+    }
+
+    div[data-baseweb="select"] > div:hover {
+        border-color:
+            rgba(96,165,250,0.42) !important;
+
+        background:
+            rgba(20,30,50,0.88) !important;
+
+        transform:
+            translateY(-1px);
+
+        box-shadow:
+            0 8px 25px rgba(0,0,0,0.16);
+    }
+
+    div[data-baseweb="select"]:focus-within > div {
+        border-color:
+            #60a5fa !important;
+
+        box-shadow:
+            0 0 0 3px rgba(59,130,246,0.13),
+            0 0 28px rgba(59,130,246,0.12) !important;
+
+        background:
+            rgba(20,30,52,0.95) !important;
+    }
+
+
+    /* Number inputs */
+
+    div[data-testid="stNumberInput"] > div {
+        min-height: 48px;
+
+        border-radius: 13px !important;
+
+        background:
+            rgba(15,23,42,0.72) !important;
+
+        border:
+            1px solid rgba(148,163,184,0.13) !important;
+
+        transition:
+            all 0.25s ease !important;
+
+        box-shadow:
+            inset 0 1px rgba(255,255,255,0.025);
+    }
+
+    div[data-testid="stNumberInput"] > div:hover {
+        border-color:
+            rgba(96,165,250,0.42) !important;
+
+        background:
+            rgba(20,30,50,0.88) !important;
+
+        transform:
+            translateY(-1px);
+
+        box-shadow:
+            0 8px 25px rgba(0,0,0,0.16);
+    }
+
+    div[data-testid="stNumberInput"]:focus-within > div {
+        border-color:
+            #60a5fa !important;
+
+        box-shadow:
+            0 0 0 3px rgba(59,130,246,0.13),
+            0 0 28px rgba(59,130,246,0.12) !important;
+
+        background:
+            rgba(20,30,52,0.95) !important;
+    }
+
+    div[data-testid="stNumberInput"] input {
+        color: #f8fafc !important;
+
+        font-size: 14px !important;
+    }
+
+
+    
+
+
+    /* ======================================================
+       MAIN BUTTON
+       ====================================================== */
+
+    div.stButton > button {
+        height: 58px;
+
+        border-radius: 15px;
+
+        border: 1px solid
+            rgba(147,197,253,0.20);
+
+        background:
+            linear-gradient(
+                100deg,
+                #2563eb,
+                #4f46e5,
+                #7c3aed
+            );
+
+        color: white;
+
+        font-size: 14px;
+
+        font-weight: 800;
+
+        letter-spacing: 0.3px;
+
+        box-shadow:
+            0 12px 35px rgba(37,99,235,0.22);
+
+        transition:
+            all 0.25s ease;
+    }
+
+    div.stButton > button:hover {
+        transform:
+            translateY(-3px);
+
+        box-shadow:
+            0 18px 45px rgba(59,130,246,0.32);
+
+        border-color:
+            rgba(255,255,255,0.22);
+    }
+
+    div.stButton > button:active {
+        transform:
+            translateY(0);
+    }
+
+
+    /* ======================================================
+       RESULT
+       ====================================================== */
+
+    .result-shell {
+        position: relative;
+
+        overflow: hidden;
+
+        padding: 34px;
+
+        border-radius: 25px;
+
+        margin-top: 30px;
+
+        text-align: center;
+
+        background:
+            linear-gradient(
+                135deg,
+                rgba(15,23,42,0.90),
+                rgba(17,24,39,0.70)
+            );
+
+        border:
+            1px solid rgba(148,163,184,0.12);
+
+        box-shadow:
+            0 25px 70px rgba(0,0,0,0.25);
+
+        backdrop-filter:
+            blur(25px);
+    }
+
+    .result-shell.success {
+        border-color:
+            rgba(52,211,153,0.25);
+
+        box-shadow:
+            0 0 60px rgba(16,185,129,0.08);
+    }
+
+    .result-shell.failure {
+        border-color:
+            rgba(248,113,113,0.25);
+
+        box-shadow:
+            0 0 60px rgba(239,68,68,0.07);
+    }
+
+    .result-kicker {
+        color: #64748b;
+
+        font-size: 11px;
+
+        text-transform: uppercase;
+
+        letter-spacing: 2px;
+
+        font-weight: 800;
+    }
+
+    .result-title {
+        margin-top: 8px;
+
+        color: #f8fafc;
+
+        font-size: 30px;
+
+        font-weight: 850;
+    }
+
+    .result-number {
+        margin-top: 15px;
+
+        font-size: 60px;
+
+        line-height: 1;
+
+        font-weight: 900;
+
+        background:
+            linear-gradient(
+                90deg,
+                #f8fafc,
+                #93c5fd
+            );
+
+        -webkit-background-clip: text;
+
+        -webkit-text-fill-color: transparent;
+    }
+
+    .result-caption {
+        margin-top: 9px;
+
+        color: #64748b;
+
+        font-size: 12px;
+    }
+
+
+    /* ======================================================
+       METRICS
+       ====================================================== */
+
+    .metric {
+        padding: 19px;
+
+        border-radius: 17px;
+
+        background:
+            rgba(15,23,42,0.65);
+
+        border:
+            1px solid rgba(148,163,184,0.10);
+
+        transition:
+            all 0.25s ease;
+    }
+
+    .metric:hover {
+        transform:
+            translateY(-3px);
+
+        border-color:
+            rgba(96,165,250,0.25);
+
+        box-shadow:
+            0 12px 30px rgba(0,0,0,0.18);
+    }
+
+    .metric-value {
+        color: #f8fafc;
+
+        font-size: 20px;
+
+        font-weight: 800;
+    }
+
+    .metric-label {
+        color: #64748b;
+
+        font-size: 11px;
+
+        margin-top: 4px;
+    }
+
+
+    /* ======================================================
+       EXPLANATION
+       ====================================================== */
+
+    .xai-header {
+        margin-top: 35px;
+
+        padding: 24px;
+
+        border-radius: 20px;
+
+        background:
+            linear-gradient(
+                135deg,
+                rgba(124,58,237,0.10),
+                rgba(37,99,235,0.07)
+            );
+
+        border:
+            1px solid rgba(139,92,246,0.14);
+    }
+
+    .xai-title {
+        color: #f8fafc;
+
+        font-size: 20px;
+
+        font-weight: 800;
+    }
+
+    .xai-subtitle {
+        color: #64748b;
+
+        font-size: 12px;
+
+        margin-top: 5px;
+    }
+
+
+    /* ======================================================
+       FOOTER
+       ====================================================== */
+
+    .footer {
+        margin-top: 55px;
+
+        padding-top: 25px;
+
+        border-top:
+            1px solid rgba(148,163,184,0.08);
+
+        text-align: center;
+
+        color: #475569;
+
+        font-size: 11px;
+    }
+
+
+    /* ============================================================
+    PREMIUM FORM CARDS
+    ============================================================ */
+
+    div[data-testid="stVerticalBlockBorderWrapper"] {
+        background:
+            linear-gradient(
+                145deg,
+                rgba(15, 23, 42, 0.78),
+                rgba(10, 15, 28, 0.62)
+            ) !important;
+
+        border:
+            1px solid rgba(148, 163, 184, 0.10) !important;
+
+        border-radius: 22px !important;
+
+        box-shadow:
+            0 20px 50px rgba(0, 0, 0, 0.20),
+            inset 0 1px rgba(255,255,255,0.035) !important;
+
+        backdrop-filter: blur(22px);
+
+        transition:
+            border-color 0.3s ease,
+            box-shadow 0.3s ease,
+            transform 0.3s ease;
+    }
+
+    div[data-testid="stVerticalBlockBorderWrapper"]:hover {
+        border-color:
+            rgba(96, 165, 250, 0.18) !important;
+
+        box-shadow:
+            0 25px 60px rgba(0,0,0,0.25),
+            0 0 35px rgba(59,130,246,0.05) !important;
+    }
+
+
+    /* Card heading */
+
+    .form-card-title {
+        color: #f8fafc;
+
+        font-size: 16px;
+
+        font-weight: 800;
+
+        letter-spacing: -0.2px;
+
+        margin-bottom: 3px;
+    }
+
+    .form-card-description {
+        color: #64748b;
+
+        font-size: 11px;
+
+        line-height: 1.5;
+
+        margin-bottom: 18px;
+    }
+
+
+    /* Small icon badge */
+
+    .form-icon {
+        display: inline-flex;
+
+        align-items: center;
+
+        justify-content: center;
+
+        width: 34px;
+        height: 34px;
+
+        border-radius: 10px;
+
+        margin-bottom: 12px;
+
+        background:
+            linear-gradient(
+                135deg,
+                rgba(59,130,246,0.16),
+                rgba(124,58,237,0.14)
+            );
+
+        border:
+            1px solid rgba(96,165,250,0.16);
+
+        color: #93c5fd;
+
+        font-size: 15px;
+    }
+
+
+    /* Input helper */
+
+    .input-hint {
+        color: #475569;
+
+        font-size: 10px;
+
+        margin-top: -4px;
+
+        margin-bottom: 12px;
+    }
+
+
+    /* Better divider */
+
+    .form-divider {
+        height: 1px;
+
+        background:
+            linear-gradient(
+                90deg,
+                transparent,
+                rgba(148,163,184,0.12),
+                transparent
+            );
+
+        margin: 10px 0 22px;
+    }
+
+
+    /* Button glow */
+
+    div.stButton > button {
+        position: relative;
+
+        overflow: hidden;
+    }
+
+    div.stButton > button::before {
+        content: "";
+
+        position: absolute;
+
+        top: 0;
+        left: -100%;
+
+        width: 70%;
+        height: 100%;
+
+        background:
+            linear-gradient(
+                90deg,
+                transparent,
+                rgba(255,255,255,0.13),
+                transparent
+            );
+
+        transform: skewX(-20deg);
+
+        transition: left 0.6s ease;
+    }
+
+    div.stButton > button:hover::before {
+        left: 140%;
+    }
+    /* ============================================================
+    TRUSTLOAN AI — PREMIUM RESULT UI
+    ============================================================ */
+
+    /* ------------------------------------------------------------
+    RESULT ORB
+    ------------------------------------------------------------ */
+
+    .result-orb {
+        width: 14px !important;
+        height: 14px !important;
+        min-width: 14px !important;
+        max-width: 14px !important;
+
+        display: block !important;
+
+        margin: 0 auto 16px auto !important;
+
+        border-radius: 50% !important;
+
+        animation: orbPulse 2.4s ease-in-out infinite;
+
+        position: relative;
+        z-index: 2;
+    }
+
+    @keyframes orbPulse {
+        0%, 100% {
+            transform: scale(1);
+            opacity: 1;
+        }
+
+        50% {
+            transform: scale(1.15);
+            opacity: 0.85;
+        }
+    }
+
+
+    /* ------------------------------------------------------------
+    RESULT CARD ENHANCEMENT
+    ------------------------------------------------------------ */
+
+    .result-shell {
+        position: relative !important;
+        overflow: hidden !important;
+
+        padding: 42px 30px !important;
+
+        border-radius: 28px !important;
+
+        text-align: center !important;
+
+        backdrop-filter: blur(28px) saturate(140%) !important;
+
+        transition:
+            transform 0.35s ease,
+            box-shadow 0.35s ease,
+            border-color 0.35s ease !important;
+    }
+
+    .result-shell:hover {
+        transform: translateY(-3px);
+
+        box-shadow:
+            0 30px 80px rgba(0,0,0,0.35),
+            0 0 45px rgba(59,130,246,0.08) !important;
+    }
+
+
+    /* Decorative glow */
+
+    .result-shell::before {
+        content: "";
+
+        position: absolute;
+
+        width: 320px;
+        height: 320px;
+
+        top: -180px;
+        left: 50%;
+
+        transform: translateX(-50%);
+
+        background:
+            radial-gradient(
+                circle,
+                rgba(96,165,250,0.12),
+                transparent 70%
+            );
+
+        pointer-events: none;
+    }
+
+
+    /* ------------------------------------------------------------
+    RESULT STATUS
+    ------------------------------------------------------------ */
+
+    .result-kicker {
+        position: relative;
+
+        color: #64748b !important;
+
+        font-size: 10px !important;
+
+        letter-spacing: 2.4px !important;
+
+        font-weight: 800 !important;
+
+        margin-bottom: 8px !important;
+    }
+
+    .result-title {
+        position: relative;
+
+        font-size: 30px !important;
+
+        font-weight: 850 !important;
+
+        margin-top: 5px !important;
+    }
+
+    .result-number {
+        position: relative;
+
+        margin-top: 18px !important;
+
+        font-size: 68px !important;
+
+        line-height: 1 !important;
+
+        font-weight: 900 !important;
+
+        letter-spacing: -3px !important;
+    }
+
+    .result-caption {
+        position: relative;
+
+        margin-top: 12px !important;
+
+        color: #64748b !important;
+
+        font-size: 12px !important;
+    }
+
+
+    /* ------------------------------------------------------------
+    MODEL COMPLETE PILL
+    ------------------------------------------------------------ */
+
+    .result-status-pill {
+        display: inline-flex !important;
+
+        align-items: center !important;
+        justify-content: center !important;
+
+        width: auto !important;
+        max-width: max-content !important;
+
+        margin: 20px auto 0 auto !important;
+
+        padding: 8px 14px !important;
+
+        border-radius: 999px !important;
+
+        border: 1px solid transparent;
+
+        font-size: 10px !important;
+
+        font-weight: 750 !important;
+
+        letter-spacing: 0.8px !important;
+
+        white-space: nowrap !important;
+
+        backdrop-filter: blur(12px);
+
+        transition: all 0.25s ease;
+    }
+
+    .result-status-pill:hover {
+        transform: translateY(-1px);
+
+        filter: brightness(1.12);
+    }
+
+
+    /* ============================================================
+    APPLICANT SNAPSHOT
+    ============================================================ */
+
+    .snapshot-heading {
+        display: flex;
+
+        align-items: center;
+
+        justify-content: space-between;
+
+        margin-top: 42px;
+        margin-bottom: 20px;
+    }
+
+    .snapshot-title {
+        color: #f8fafc;
+
+        font-size: 21px;
+
+        font-weight: 820;
+
+        letter-spacing: -0.4px;
+    }
+
+    .snapshot-subtitle {
+        color: #64748b;
+
+        font-size: 12px;
+
+        margin-top: 5px;
+    }
+
+
+    /* ------------------------------------------------------------
+    METRIC GRID
+    ------------------------------------------------------------ */
+
+    .metrics-grid {
+        display: grid;
+
+        grid-template-columns:
+            repeat(4, minmax(0, 1fr));
+
+        gap: 14px;
+
+        width: 100%;
+
+        margin-bottom: 35px;
+    }
+
+
+    /* ------------------------------------------------------------
+    PREMIUM METRIC CARD
+    ------------------------------------------------------------ */
+
+    .premium-metric {
+        position: relative;
+
+        min-height: 150px;
+
+        padding: 20px;
+
+        border-radius: 20px;
+
+        overflow: hidden;
+
+        background:
+            linear-gradient(
+                145deg,
+                rgba(15,23,42,0.82),
+                rgba(10,15,28,0.62)
+            );
+
+        border:
+            1px solid rgba(148,163,184,0.10);
+
+        box-shadow:
+            0 15px 35px rgba(0,0,0,0.18),
+            inset 0 1px rgba(255,255,255,0.035);
+
+        backdrop-filter: blur(22px);
+
+        transition:
+            transform 0.3s ease,
+            border-color 0.3s ease,
+            box-shadow 0.3s ease;
+    }
+
+
+    /* Glow */
+
+    .premium-metric::before {
+        content: "";
+
+        position: absolute;
+
+        width: 140px;
+        height: 140px;
+
+        top: -80px;
+        right: -60px;
+
+        background:
+            radial-gradient(
+                circle,
+                rgba(59,130,246,0.13),
+                transparent 70%
+            );
+
+        pointer-events: none;
+    }
+
+
+    .premium-metric:hover {
+        transform: translateY(-5px);
+
+        border-color:
+            rgba(96,165,250,0.28);
+
+        box-shadow:
+            0 22px 45px rgba(0,0,0,0.28),
+            0 0 30px rgba(59,130,246,0.07),
+            inset 0 1px rgba(255,255,255,0.05);
+    }
+
+
+    /* ------------------------------------------------------------
+    METRIC ICON
+    ------------------------------------------------------------ */
+
+    .metric-icon {
+        width: 38px;
+        height: 38px;
+
+        display: flex;
+
+        align-items: center;
+        justify-content: center;
+
+        border-radius: 12px;
+
+        margin-bottom: 15px;
+
+        color: #93c5fd;
+
+        font-size: 16px;
+
+        background:
+            linear-gradient(
+                135deg,
+                rgba(59,130,246,0.14),
+                rgba(124,58,237,0.14)
+            );
+
+        border:
+            1px solid rgba(96,165,250,0.16);
+
+        box-shadow:
+            inset 0 1px rgba(255,255,255,0.04);
+    }
+
+
+    /* ------------------------------------------------------------
+    METRIC TEXT
+    ------------------------------------------------------------ */
+
+    .premium-metric .metric-value {
+        color: #f8fafc;
+
+        font-size: 21px;
+
+        font-weight: 850;
+
+        letter-spacing: -0.4px;
+
+        line-height: 1.2;
+    }
+
+    .premium-metric .metric-label {
+        color: #cbd5e1;
+
+        font-size: 11px;
+
+        font-weight: 650;
+
+        margin-top: 7px;
+    }
+
+    .metric-helper {
+        color: #475569;
+
+        font-size: 10px;
+
+        margin-top: 4px;
+    }
+
+
+    /* ============================================================
+    EXPLAINABLE AI
+    ============================================================ */
+
+    .xai-header {
+        position: relative;
+
+        overflow: hidden;
+
+        margin-top: 42px !important;
+
+        padding: 28px !important;
+
+        border-radius: 24px !important;
+
+        background:
+            linear-gradient(
+                135deg,
+                rgba(124,58,237,0.12),
+                rgba(37,99,235,0.08)
+            ) !important;
+
+        border:
+            1px solid rgba(139,92,246,0.18) !important;
+
+        box-shadow:
+            0 20px 50px rgba(0,0,0,0.18),
+            inset 0 1px rgba(255,255,255,0.035);
+
+        backdrop-filter: blur(25px);
+    }
+
+    .xai-header::after {
+        content: "";
+
+        position: absolute;
+
+        width: 220px;
+        height: 220px;
+
+        right: -100px;
+        top: -100px;
+
+        background:
+            radial-gradient(
+                circle,
+                rgba(139,92,246,0.16),
+                transparent 70%
+            );
+
+        pointer-events: none;
+    }
+
+    .xai-badge {
+        display: inline-flex;
+
+        align-items: center;
+
+        padding: 6px 10px;
+
+        border-radius: 999px;
+
+        color: #c4b5fd;
+
+        background:
+            rgba(139,92,246,0.10);
+
+        border:
+            1px solid rgba(139,92,246,0.18);
+
+        font-size: 10px;
+
+        font-weight: 800;
+
+        letter-spacing: 1.4px;
+    }
+
+    .xai-title {
+        margin-top: 12px;
+
+        color: #f8fafc !important;
+
+        font-size: 22px !important;
+
+        font-weight: 820 !important;
+    }
+
+    .xai-subtitle {
+        max-width: 700px;
+
+        color: #64748b !important;
+
+        font-size: 12px !important;
+
+        line-height: 1.6;
+
+        margin-top: 7px !important;
+    }
+
+
+    /* ============================================================
+    ANALYSIS HEADINGS
+    ============================================================ */
+
+    .analysis-heading {
+        display: flex;
+
+        align-items: center;
+
+        gap: 14px;
+
+        margin-top: 35px;
+
+        margin-bottom: 18px;
+    }
+
+    .analysis-number {
+        width: 38px;
+        height: 38px;
+
+        display: flex;
+
+        align-items: center;
+        justify-content: center;
+
+        border-radius: 12px;
+
+        color: #93c5fd;
+
+        font-size: 11px;
+
+        font-weight: 850;
+
+        background:
+            linear-gradient(
+                135deg,
+                rgba(59,130,246,0.12),
+                rgba(124,58,237,0.12)
+            );
+
+        border:
+            1px solid rgba(96,165,250,0.14);
+    }
+
+    .analysis-title {
+        color: #f8fafc;
+
+        font-size: 18px;
+
+        font-weight: 800;
+    }
+
+    .analysis-subtitle {
+        color: #64748b;
+
+        font-size: 11px;
+
+        margin-top: 4px;
+    }
+
+
+    /* ============================================================
+    TOP DECISION FACTORS
+    ============================================================ */
+
+    .factor-list {
+        display: grid;
+
+        grid-template-columns:
+            repeat(2, minmax(0, 1fr));
+
+        gap: 12px;
+
+        margin-top: 10px;
+    }
+
+    .factor-card {
+        display: flex;
+
+        align-items: center;
+
+        justify-content: space-between;
+
+        gap: 15px;
+
+        min-height: 78px;
+
+        padding: 16px 18px;
+
+        border-radius: 17px;
+
+        background:
+            rgba(15,23,42,0.68);
+
+        border:
+            1px solid rgba(148,163,184,0.09);
+
+        backdrop-filter: blur(18px);
+
+        transition:
+            transform 0.25s ease,
+            border-color 0.25s ease,
+            box-shadow 0.25s ease;
+    }
+
+    .factor-card:hover {
+        transform: translateY(-3px);
+
+        border-color:
+            rgba(96,165,250,0.22);
+
+        box-shadow:
+            0 14px 35px rgba(0,0,0,0.22);
+    }
+
+
+    .factor-left {
+        display: flex;
+
+        align-items: center;
+
+        gap: 12px;
+
+        min-width: 0;
+    }
+
+    .factor-icon {
+        width: 34px;
+        height: 34px;
+
+        min-width: 34px;
+
+        display: flex;
+
+        align-items: center;
+        justify-content: center;
+
+        border-radius: 10px;
+
+        font-size: 15px;
+
+        font-weight: 850;
+    }
+
+    .factor-card.positive .factor-icon {
+        color: #34d399;
+
+        background:
+            rgba(52,211,153,0.10);
+
+        border:
+            1px solid rgba(52,211,153,0.15);
+    }
+
+    .factor-card.negative .factor-icon {
+        color: #f87171;
+
+        background:
+            rgba(248,113,113,0.10);
+
+        border:
+            1px solid rgba(248,113,113,0.15);
+    }
+
+
+    .factor-name {
+        color: #e2e8f0;
+
+        font-size: 12px;
+
+        font-weight: 750;
+
+        white-space: nowrap;
+
+        overflow: hidden;
+
+        text-overflow: ellipsis;
+    }
+
+    .factor-description {
+        color: #64748b;
+
+        font-size: 10px;
+
+        margin-top: 3px;
+    }
+
+    .factor-impact {
+        font-size: 13px;
+
+        font-weight: 850;
+
+        white-space: nowrap;
+    }
+
+    .factor-card.positive .factor-impact {
+        color: #34d399;
+    }
+
+    .factor-card.negative .factor-impact {
+        color: #f87171;
+    }
+
+
+    /* ============================================================
+    SHAP CHART CONTAINER
+    ============================================================ */
+
+    div[data-testid="stImage"],
+    div[data-testid="stPyplot"] {
+        border-radius: 20px;
+
+        overflow: hidden;
+
+        box-shadow:
+            0 20px 55px rgba(0,0,0,0.25);
+
+        margin-top: 8px;
+    }
+
+
+    /* ============================================================
+    RESPONSIVE
+    ============================================================ */
+
+    @media (max-width: 900px) {
+
+        .metrics-grid {
+            grid-template-columns:
+                repeat(2, minmax(0, 1fr));
+        }
+
+        .factor-list {
+            grid-template-columns:
+                1fr;
+        }
+
+        .hero-title {
+            font-size: 38px;
+        }
+    }
+
+
+    @media (max-width: 600px) {
+
+        .block-container {
+            padding-left: 18px;
+            padding-right: 18px;
+        }
+
+        .hero-wrapper {
+            padding: 30px 25px;
+        }
+
+        .hero-title {
+            font-size: 31px;
+        }
+
+        .hero-description {
+            font-size: 13px;
+        }
+
+        .hero-status {
+            position: static;
+
+            margin-top: 22px;
+        }
+
+        .metrics-grid {
+            grid-template-columns:
+                1fr;
+        }
+
+        .result-number {
+            font-size: 54px !important;
+        }
+
+        .steps {
+            overflow-x: auto;
+        }
+    }
+
+    /* ============================================================
+    TRUSTLOAN FOOTER
+    ============================================================ */
+
+    .trustloan-footer {
+        margin-top: 70px;
+        margin-bottom: 30px;
+        padding: 35px 30px;
+
+        text-align: center;
+
+        background:
+            linear-gradient(
+                135deg,
+                rgba(15, 23, 42, 0.92),
+                rgba(20, 24, 50, 0.88)
+            );
+
+        border: 1px solid rgba(96, 165, 250, 0.14);
+        border-radius: 22px;
+
+        box-shadow:
+            0 20px 60px rgba(0, 0, 0, 0.28),
+            inset 0 1px 0 rgba(255, 255, 255, 0.035);
+
+        backdrop-filter: blur(18px);
+
+        transition:
+            transform 0.3s ease,
+            border-color 0.3s ease,
+            box-shadow 0.3s ease;
+    }
+
+    .trustloan-footer:hover {
+        transform: translateY(-3px);
+
+        border-color: rgba(96, 165, 250, 0.30);
+
+        box-shadow:
+            0 25px 70px rgba(37, 99, 235, 0.12),
+            inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    }
+
+    .footer-brand {
+        font-size: 17px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        color: #e2e8f0;
+    }
+
+    .footer-brand span {
+        margin: 0 8px;
+        color: #64748b;
+    }
+
+    .footer-divider {
+        width: 60px;
+        height: 2px;
+
+        margin: 18px auto;
+
+        background:
+            linear-gradient(
+                90deg,
+                #3b82f6,
+                #8b5cf6
+            );
+
+        border-radius: 10px;
+    }
+
+    .footer-disclaimer {
+        font-size: 13px;
+        font-weight: 600;
+        color: #94a3b8;
+        margin-bottom: 7px;
+    }
+
+    .footer-note {
+        max-width: 650px;
+        margin: auto;
+
+        font-size: 12px;
+        line-height: 1.7;
+
+        color: #64748b;
+    }
+
+    .footer-tech {
+        margin-top: 18px;
+
+        font-size: 11px;
+        letter-spacing: 0.08em;
+
+        color: #475569;
+    }
+
+    .footer-tech span {
+        margin: 0 7px;
+        color: #334155;
+    }
+
+    /* ============================================================
+    APPROVAL PROBABILITY
+    ============================================================ */
+
+    .probability-panel {
+        margin-top: 28px;
+        margin-bottom: 45px;
+
+        padding: 26px 28px;
+
+        background:
+            linear-gradient(
+                135deg,
+                rgba(15, 23, 42, 0.88),
+                rgba(20, 24, 50, 0.82)
+            );
+
+        border: 1px solid rgba(96, 165, 250, 0.14);
+
+        border-radius: 20px;
+
+        backdrop-filter: blur(18px);
+
+        box-shadow:
+            0 18px 50px rgba(0, 0, 0, 0.22),
+            inset 0 1px 0 rgba(255,255,255,0.035);
+
+        transition:
+            transform 0.3s ease,
+            border-color 0.3s ease,
+            box-shadow 0.3s ease;
+    }
+
+
+    .probability-panel:hover {
+        transform: translateY(-2px);
+
+        border-color: rgba(96, 165, 250, 0.28);
+
+        box-shadow:
+            0 22px 60px rgba(37, 99, 235, 0.10),
+            inset 0 1px 0 rgba(255,255,255,0.05);
+    }
+
+
+    .probability-header {
+        display: flex;
+
+        align-items: flex-end;
+
+        justify-content: space-between;
+
+        gap: 20px;
+    }
+
+
+    .probability-label {
+        font-size: 11px;
+
+        font-weight: 700;
+
+        letter-spacing: 0.16em;
+
+        color: #94a3b8;
+    }
+
+
+    .probability-description {
+        margin-top: 6px;
+
+        font-size: 12px;
+
+        color: #64748b;
+    }
+
+
+    .probability-value {
+        font-size: 28px;
+
+        font-weight: 800;
+
+        color: #e2e8f0;
+
+        letter-spacing: -0.03em;
+    }
+
+
+    /* Progress track */
+
+    .probability-track {
+        position: relative;
+
+        width: 100%;
+
+        height: 9px;
+
+        margin-top: 22px;
+
+        overflow: hidden;
+
+        background: rgba(51, 65, 85, 0.55);
+
+        border-radius: 999px;
+    }
+
+
+    /* Progress fill */
+
+    .probability-fill {
+        height: 100%;
+
+        border-radius: 999px;
+
+        transition:
+            width 1s ease;
+
+        box-shadow:
+            0 0 18px rgba(59, 130, 246, 0.35);
+    }
+
+
+    /* High */
+
+    .probability-fill.high {
+        background:
+            linear-gradient(
+                90deg,
+                #2563eb,
+                #8b5cf6
+            );
+    }
+
+
+    /* Moderate */
+
+    .probability-fill.moderate {
+        background:
+            linear-gradient(
+                90deg,
+                #f59e0b,
+                #f97316
+            );
+    }
+
+
+    /* Low */
+
+    .probability-fill.low {
+        background:
+            linear-gradient(
+                90deg,
+                #ef4444,
+                #f43f5e
+            );
+    }
+
+
+    /* Footer */
+
+    .probability-footer {
+        display: flex;
+
+        justify-content: space-between;
+
+        align-items: center;
+
+        margin-top: 13px;
+
+        font-size: 11px;
+
+        color: #64748b;
+    }
+
+
+    .likelihood-badge {
+        padding: 6px 10px;
+
+        border-radius: 999px;
+
+        font-size: 10px;
+
+        font-weight: 700;
+
+        letter-spacing: 0.08em;
+    }
+
+
+    /* Badge states */
+
+    .likelihood-badge.high {
+        color: #34d399;
+
+        background: rgba(52, 211, 153, 0.10);
+
+        border: 1px solid rgba(52, 211, 153, 0.18);
+    }
+
+
+    .likelihood-badge.moderate {
+        color: #fbbf24;
+
+        background: rgba(251, 191, 36, 0.10);
+
+        border: 1px solid rgba(251, 191, 36, 0.18);
+    }
+
+
+    .likelihood-badge.low {
+        color: #f87171;
+
+        background: rgba(248, 113, 113, 0.10);
+
+        border: 1px solid rgba(248, 113, 113, 0.18);
+    }
+
+    </style>
+    """),
+    unsafe_allow_html=True
+)
+
+
+# ============================================================
+# LOAD MODEL
+# ============================================================
+
+@st.cache_resource
+def load_artifacts():
+
+    model = joblib.load(
+        "models/loan_eligibility_model.pkl"
+    )
+
+    config = joblib.load(
+        "models/model_config.pkl"
+    )
+
+    xai = joblib.load(
+        "models/xai_artifacts.pkl"
+    )
+
+    explainer = shap.LinearExplainer(
+        model.named_steps["model"],
+        xai["background_data"]
+    )
+
+    return model, config, xai, explainer
+
+
+model, config, xai, explainer = load_artifacts()
+
+feature_names = xai["feature_names"]
+
+
+# ============================================================
+# HERO
+# ============================================================
+
+hero_html = """
+<div class="hero-wrapper">
+    <div class="hero-badge">
+        ◈ TRUSTLOAN AI · EXPLAINABLE FINTECH
+    </div>
+
+    <h1 class="hero-title">
+        Intelligent <span>Loan Eligibility</span>
+    </h1>
+
+    <div class="hero-description">
+        Evaluate loan approval likelihood using machine learning
+        and understand the factors behind every prediction through
+        Explainable AI.
+    </div>
+
+    <div class="hero-status">
+        <div class="status-dot"></div>
+        AI MODEL ONLINE
+    </div>
+</div>
+"""
+
+st.html(hero_html)
+
+
+# ============================================================
+# STEPS
+# ============================================================
+
+steps_html = """
+<div class="steps">
+
+    <div class="step active">
+        <div class="step-number">1</div>
+        Applicant
+    </div>
+
+    <div class="step-line"></div>
+
+    <div class="step active">
+        <div class="step-number">2</div>
+        AI Analysis
+    </div>
+
+    <div class="step-line"></div>
+
+    <div class="step">
+        <div class="step-number">3</div>
+        Explanation
+    </div>
+
+</div>
+"""
+
+st.html(steps_html)
+
+
+# ============================================================
+# FORM HEADER
+# ============================================================
+
+st.html("""
+<div class="section-heading">
+
+    <div class="section-icon">◉</div>
+
+    <div class="section-title">
+        Applicant Profile
+    </div>
+
+</div>
+
+<div class="section-description">
+    Tell us about the applicant's personal and financial profile.
+</div>
+""")
+
+
+# ============================================================
+# PERSONAL + FINANCIAL CARDS
+# ============================================================
+
+personal_card, financial_card = st.columns(
+    2,
+    gap="large"
+)
+
+
+# ============================================================
+# PERSONAL INFORMATION
+# ============================================================
+
+with personal_card:
+
+    with st.container(border=True):
+
+        st.html("""
+        <div class="form-icon">♙</div>
+
+        <div class="form-card-title">
+            Personal Information
+        </div>
+
+        <div class="form-card-description">
+            Basic information about the applicant.
+        </div>
+        """)
+
+        married = st.selectbox(
+            "Marital Status",
+            ["yes", "no"],
+            format_func=lambda x:
+                "Married" if x == "yes"
+                else "Single",
+            key="marital_status"
+        )
+
+        dependents = st.selectbox(
+            "Number of Dependents",
+            ["0", "1", "2", "3+"],
+            key="dependents"
+        )
+
+        education = st.selectbox(
+            "Education",
+            ["graduate", "not graduate"],
+            format_func=lambda x:
+                "Graduate" if x == "graduate"
+                else "Not Graduate",
+            key="education"
+        )
+
+        self_employed = st.selectbox(
+            "Employment Status",
+            ["no", "yes"],
+            format_func=lambda x:
+                "Salaried / Other" if x == "no"
+                else "Self Employed",
+            key="self_employed"
+        )
+
+        property_area = st.selectbox(
+            "Property Area",
+            ["urban", "semiurban", "rural"],
+            format_func=lambda x:
+                x.title(),
+            key="property_area"
+        )
+
+
+# ============================================================
+# FINANCIAL INFORMATION
+# ============================================================
+
+with financial_card:
+
+    with st.container(border=True):
+
+        st.html("""
+        <div class="form-icon">₹</div>
+
+        <div class="form-card-title">
+            Financial Information
+        </div>
+
+        <div class="form-card-description">
+            Income, loan requirements and credit profile.
+        </div>
+        """)
+
+        applicantincome = st.number_input(
+            "Applicant Income (₹)",
+            min_value=0.0,
+            value=20000.0,
+            step=1000.0,
+            key="applicant_income"
+        )
+
+        coapplicantincome = st.number_input(
+            "Co-applicant Income (₹)",
+            min_value=0.0,
+            value=0.0,
+            step=1000.0,
+            key="coapplicant_income"
+        )
+
+        loanamount_rupees = st.number_input(
+            "Requested Loan Amount (₹)",
+            min_value=0.0,
+            value=150000.0,
+            step=10000.0,
+            key="loan_amount"
+        )
+
+        # Dataset-compatible loan terms
+        loan_term_options = {
+            "1 year · 12 months": 12,
+            "2 years · 24 months": 24,
+            "3 years · 36 months": 36,
+            "5 years · 60 months": 60,
+            "7 years · 84 months": 84,
+            "10 years · 120 months": 120,
+            "15 years · 180 months": 180,
+            "20 years · 240 months": 240,
+            "25 years · 300 months": 300,
+            "30 years · 360 months": 360,
+            "40 years · 480 months": 480
+        }
+
+        loan_term_label = st.selectbox(
+            "Loan Term",
+            list(loan_term_options.keys()),
+            index=9,
+            key="loan_term"
+        )
+
+        loan_amount_term = loan_term_options[
+            loan_term_label
+        ]
+
+        credit_history = st.selectbox(
+            "Credit History",
+            ["Good", "Poor"],
+            key="credit_history"
+        )
+
+
+# ============================================================
+# QUICK PROFILE SUMMARY
+# ============================================================
+
+st.html("""
+<div style="
+    height:1px;
+    margin:28px 0 22px;
+    background:
+        linear-gradient(
+            90deg,
+            transparent,
+            rgba(148,163,184,0.12),
+            transparent
+        );
+"></div>
+
+<div style="
+    text-align:center;
+    color:#475569;
+    font-size:10px;
+    letter-spacing:1.4px;
+    text-transform:uppercase;
+    font-weight:700;
+">
+    Ready for AI analysis
+</div>
+""")
+
+
+# ============================================================
+# ANALYZE
+# ============================================================
+
+st.markdown("<br>", unsafe_allow_html=True)
+
+if st.button(
+    "◈  ANALYZE LOAN ELIGIBILITY",
+    use_container_width=True
+):
+
+    # ========================================================
+    # DATA CONVERSION
+    # ========================================================
+
+    dependents_value = (
+        3
+        if dependents == "3+"
+        else int(dependents)
+    )
+
+    credit_history_value = (
+        1
+        if credit_history == "Good"
+        else 0
+    )
+
+    # IMPORTANT:
+    # Dataset stores loan amount in thousands.
+    loanamount = loanamount_rupees / 1000
+
+    input_data = pd.DataFrame({
+
+        "married": [married],
+
+        "dependents": [
+            dependents_value
+        ],
+
+        "education": [
+            education
+        ],
+
+        "self_employed": [
+            self_employed
+        ],
+
+        "applicantincome": [
+            applicantincome
+        ],
+
+        "coapplicantincome": [
+            coapplicantincome
+        ],
+
+        "loanamount": [
+            loanamount
+        ],
+
+        "loan_amount_term": [
+            loan_amount_term
+        ],
+
+        "credit_history": [
+            credit_history_value
+        ],
+
+        "property_area": [
+            property_area
+        ]
+    })
+
+
+    # ========================================================
+    # PREDICTION
+    # ========================================================
+
+    prediction = model.predict(
+        input_data
+    )[0]
+
+    probability = model.predict_proba(
+        input_data
+    )[0][1]
+
+    probability_percentage = probability * 100
+
+
+    # ========================================================
+    # PREDICTION RESULT
+    # ========================================================
+
+    result_class = (
+        "success"
+        if prediction == 1
+        else "failure"
+    )
+
+    result_icon = (
+        "✓"
+        if prediction == 1
+        else "!"
+    )
+
+    result_text = (
+        "Likely Eligible"
+        if prediction == 1
+        else "Likely Not Eligible"
+    )
+
+    result_color = (
+        "#34d399"
+        if prediction == 1
+        else "#f87171"
+    )
+
+    result_glow = (
+        "rgba(52,211,153,0.18)"
+        if prediction == 1
+        else "rgba(248,113,113,0.18)"
+    )
+
+    # ========================================================
+    # PREMIUM RESULT CARD
+    # ========================================================
+
+    result_html = f"""
+    <div class="result-shell {result_class}">
+
+        <div class="result-orb"
+             style="
+             background:{result_color};
+             box-shadow:
+             0 0 0 8px {result_glow},
+             0 0 35px {result_color};
+             ">
+        </div>
+
+        <div class="result-kicker">
+            AI ASSESSMENT
+        </div>
+
+        <div class="result-title"
+             style="color:{result_color};">
+            {result_icon}
+            {result_text}
+        </div>
+
+        <div class="result-number">
+            {probability_percentage:.1f}%
+        </div>
+
+        <div class="result-caption">
+            Estimated probability of loan approval
+        </div>
+
+        <div class="result-status-pill"
+             style="
+             border-color:{result_glow};
+             background:{result_glow};
+             color:{result_color};
+             ">
+            ● MODEL ANALYSIS COMPLETE
+        </div>
+
+    </div>
+    """
+
+    st.html(result_html)
+
+    # ========================================================
+    # APPROVAL PROBABILITY
+    # ========================================================
+
+    if probability_percentage < 40:
+        likelihood_text = "LOW LIKELIHOOD"
+        likelihood_class = "low"
+    elif probability_percentage < 70:
+        likelihood_text = "MODERATE LIKELIHOOD"
+        likelihood_class = "moderate"
+    else:
+        likelihood_text = "HIGH LIKELIHOOD"
+        likelihood_class = "high"
+
+
+    probability_html = f"""
+    <div class="probability-panel">
+
+        <div class="probability-header">
+
+            <div>
+                <div class="probability-label">
+                    APPROVAL PROBABILITY
+                </div>
+
+                <div class="probability-description">
+                    Estimated likelihood of loan approval
+                </div>
+            </div>
+
+            <div class="probability-value">
+                {probability_percentage:.1f}%
+            </div>
+
+        </div>
+
+
+        <div class="probability-track">
+
+            <div
+                class="probability-fill {likelihood_class}"
+                style="width:{probability_percentage:.1f}%;">
+            </div>
+
+        </div>
+
+
+        <div class="probability-footer">
+
+            <span>
+                Model probability
+            </span>
+
+            <span class="likelihood-badge {likelihood_class}">
+                ● {likelihood_text}
+            </span>
+
+        </div>
+
+    </div>
+    """
+
+    st.html(probability_html)
+
+
+    # ========================================================
+    # APPLICANT SNAPSHOT
+    # ========================================================
+
+    st.html("""
+    <div class="snapshot-heading">
+        <div>
+            <div class="snapshot-title">
+                Applicant Snapshot
+            </div>
+
+            <div class="snapshot-subtitle">
+                Key information used by the prediction model
+            </div>
+        </div>
+    </div>
+    """)
+
+
+    # ========================================================
+    # METRIC CARDS
+    # ========================================================
+
+    metrics = [
+        (
+            "₹",
+            f"₹{applicantincome:,.0f}",
+            "Applicant Income",
+            "Monthly income"
+        ),
+        (
+            "◈",
+            f"₹{loanamount_rupees:,.0f}",
+            "Requested Loan",
+            "Requested amount"
+        ),
+        (
+            "◷",
+            f"{loan_amount_term}",
+            "Loan Term",
+            "Months"
+        ),
+        (
+            "✓",
+            "Good" if credit_history_value == 1 else "Poor",
+            "Credit History",
+            "Credit profile"
+        ),
+    ]
+
+
+    metric_html = '<div class="metrics-grid">'
+
+    for icon, value, label, helper in metrics:
+
+        metric_html += f"""
+        <div class="premium-metric">
+
+            <div class="metric-icon">
+                {icon}
+            </div>
+
+            <div class="metric-value">
+                {value}
+            </div>
+
+            <div class="metric-label">
+                {label}
+            </div>
+
+            <div class="metric-helper">
+                {helper}
+            </div>
+
+        </div>
+        """
+
+    metric_html += "</div>"
+
+    st.html(metric_html)
+
+
+    # ========================================================
+    # EXPLAINABLE AI
+    # ========================================================
+
+    st.html("""
+    <div class="xai-header">
+
+        <div class="xai-badge">
+            ◇ XAI
+        </div>
+
+        <div class="xai-title">
+            Explainable AI
+        </div>
+
+        <div class="xai-subtitle">
+            Understand why the model reached this prediction.
+            The explanation is generated using SHAP.
+        </div>
+
+    </div>
+    """)
+
+
+    # ========================================================
+    # TRANSFORM APPLICANT
+    # ========================================================
+
+    transformed_input = model.named_steps[
+        "preprocessor"
+    ].transform(
+        input_data
+    )
+
+
+    # ========================================================
+    # SHAP
+    # ========================================================
+
+    shap_result = explainer(
+        transformed_input
+    )
+
+
+    explanation = shap.Explanation(
+        values=shap_result.values[0],
+        base_values=shap_result.base_values[0],
+        data=transformed_input[0],
+        feature_names=feature_names
+    )
+
+
+    # ========================================================
+    # SHAP WATERFALL — TRUSTLOAN DARK UI
+    # ========================================================
+
+    st.html("""
+    <div class="analysis-heading">
+
+        <div class="analysis-number">
+            01
+        </div>
+
+        <div>
+            <div class="analysis-title">
+                Individual Prediction Explanation
+            </div>
+
+            <div class="analysis-subtitle">
+                How each feature contributed to this applicant's prediction
+            </div>
+        </div>
+
+    </div>
+    """)
+
+
+    # --------------------------------------------------------
+    # Human-readable feature names
+    # --------------------------------------------------------
+
+    def readable_feature_name(feature):
+
+        name = feature
+
+        name = name.replace("num__", "")
+        name = name.replace("cat__", "")
+
+        replacements = {
+            "credit_history": "Credit History",
+            "applicantincome": "Applicant Income",
+            "coapplicantincome": "Co-applicant Income",
+            "loanamount": "Loan Amount",
+            "loan_amount_term": "Loan Term",
+            "dependents": "Dependents",
+
+            "married_no": "Married — No",
+            "married_yes": "Married — Yes",
+
+            "education_graduate": "Education — Graduate",
+            "education_not graduate": "Education — Not Graduate",
+
+            "self_employed_no": "Self Employed — No",
+            "self_employed_yes": "Self Employed — Yes",
+
+            "property_area_rural": "Property Area — Rural",
+            "property_area_semiurban": "Property Area — Semiurban",
+            "property_area_urban": "Property Area — Urban",
+        }
+
+        if name in replacements:
+            return replacements[name]
+
+        return name.replace("_", " ").title()
+
+
+    # --------------------------------------------------------
+    # Prepare SHAP values
+    # --------------------------------------------------------
+
+    shap_values = explanation.values
+
+    feature_values = explanation.data
+
+
+    # Handle possible SHAP dimensions safely
+    if len(np.shape(shap_values)) > 1:
+        shap_values = shap_values[0]
+
+    if len(np.shape(feature_values)) > 1:
+        feature_values = feature_values[0]
+
+
+    shap_df = pd.DataFrame({
+        "feature": feature_names,
+        "shap": shap_values,
+        "value": feature_values
+    })
+
+
+    # Keep strongest features
+    shap_df["impact"] = shap_df["shap"].abs()
+
+    shap_df = (
+        shap_df
+        .sort_values("impact", ascending=False)
+        .head(8)
+        .sort_values("shap")
+    )
+
+
+    # --------------------------------------------------------
+    # Create dark SHAP figure
+    # --------------------------------------------------------
+
+    fig, ax = plt.subplots(
+        figsize=(12, 6)
+    )
+
+
+    # TrustLoan dark background
+    fig.patch.set_facecolor("#080c17")
+    ax.set_facecolor("#080c17")
+
+
+    # --------------------------------------------------------
+    # Feature names
+    # --------------------------------------------------------
+
+    labels = [
+        readable_feature_name(x)
+        for x in shap_df["feature"]
+    ]
+
+
+    values = shap_df["shap"].values
+
+
+    y_positions = np.arange(len(labels))
+
+
+    # --------------------------------------------------------
+    # Positive / negative colors
+    # --------------------------------------------------------
+
+    positive_color = "#34d399"
+    negative_color = "#60a5fa"
+
+
+    bar_colors = [
+        positive_color if value >= 0 else negative_color
+        for value in values
+    ]
+
+
+    # --------------------------------------------------------
+    # Bars
+    # --------------------------------------------------------
+
+    bars = ax.barh(
+        y_positions,
+        values,
+        height=0.58,
+        color=bar_colors,
+        alpha=0.95
+    )
+
+
+    # --------------------------------------------------------
+    # Zero line
+    # --------------------------------------------------------
+
+    ax.axvline(
+        0,
+        color="#64748b",
+        linewidth=1.2,
+        alpha=0.7
+    )
+
+
+    # --------------------------------------------------------
+    # Feature labels
+    # --------------------------------------------------------
+
+    ax.set_yticks(y_positions)
+
+    ax.set_yticklabels(
+        labels,
+        fontsize=11,
+        color="#e2e8f0"
+    )
+
+
+    # --------------------------------------------------------
+    # SHAP values on bars
+    # --------------------------------------------------------
+
+    max_value = max(abs(values)) if len(values) else 1
+
+    for bar, value in zip(bars, values):
+
+        y = bar.get_y() + bar.get_height() / 2
+
+        if value >= 0:
+
+            x = value + max_value * 0.025
+            alignment = "left"
+
+        else:
+
+            x = value - max_value * 0.025
+            alignment = "right"
+
+        ax.text(
+            x,
+            y,
+            f"{value:+.3f}",
+            va="center",
+            ha=alignment,
+            fontsize=10,
+            fontweight="bold",
+            color="#f8fafc"
+        )
+
+
+    # --------------------------------------------------------
+    # Title inside chart
+    # --------------------------------------------------------
+
+    ax.text(
+        0,
+        1.08,
+        "Feature Contribution to Model Prediction",
+        transform=ax.transAxes,
+        fontsize=13,
+        fontweight="bold",
+        color="#f8fafc",
+        ha="left"
+    )
+
+
+    # --------------------------------------------------------
+    # Subtitle
+    # --------------------------------------------------------
+
+    ax.text(
+        0,
+        1.025,
+        "Green = supports approval   •   Blue = reduces approval score",
+        transform=ax.transAxes,
+        fontsize=9,
+        color="#94a3b8",
+        ha="left"
+    )
+
+
+    # --------------------------------------------------------
+    # Clean chart
+    # --------------------------------------------------------
+
+    for spine in ax.spines.values():
+        spine.set_visible(False)
+
+
+    ax.tick_params(
+        axis="x",
+        colors="#64748b",
+        labelsize=9
+    )
+
+    ax.tick_params(
+        axis="y",
+        length=0
+    )
+
+
+    ax.grid(
+        axis="x",
+        linestyle="--",
+        linewidth=0.6,
+        alpha=0.12,
+        color="#94a3b8"
+    )
+
+
+    ax.set_axisbelow(True)
+
+
+    # Remove unnecessary margins
+    ax.margins(y=0.08)
+
+
+    plt.tight_layout()
+
+
+    # --------------------------------------------------------
+    # Display
+    # --------------------------------------------------------
+
+    st.pyplot(
+        fig,
+        width="stretch"
+    )
+
+
+    plt.close(fig)
+
+
+    # ========================================================
+    # TOP FACTORS
+    # ========================================================
+
+    st.html("""
+    <div class="analysis-heading">
+
+        <div class="analysis-number">
+            02
+        </div>
+
+        <div>
+            <div class="analysis-title">
+                Top Decision Factors
+            </div>
+
+            <div class="analysis-subtitle">
+                The strongest factors influencing the prediction
+            </div>
+        </div>
+
+    </div>
+    """)
+
+
+    explanation_df = pd.DataFrame({
+
+        "Feature": feature_names,
+
+        "SHAP Value":
+            explanation.values
+
+    })
+
+
+    explanation_df[
+        "Absolute Impact"
+    ] = explanation_df[
+        "SHAP Value"
+    ].abs()
+
+
+    explanation_df = (
+        explanation_df
+        .sort_values(
+            "Absolute Impact",
+            ascending=False
+        )
+        .head(6)
+    )
+
+
+    factors_html = '<div class="factor-list">'
+
+    for _, row in explanation_df.iterrows():
+
+        feature = row["Feature"]
+
+        value = row["SHAP Value"]
+
+        readable_name = (
+            feature
+            .replace("num__", "")
+            .replace("cat__", "")
+            .replace("_", " ")
+            .title()
+        )
+
+        if value > 0:
+
+            icon = "↑"
+            text = "Supports approval"
+            factor_class = "positive"
+
+        else:
+
+            icon = "↓"
+            text = "Reduces approval score"
+            factor_class = "negative"
+
+
+        factors_html += f"""
+        <div class="factor-card {factor_class}">
+
+            <div class="factor-left">
+
+                <div class="factor-icon">
+                    {icon}
+                </div>
+
+                <div>
+
+                    <div class="factor-name">
+                        {readable_name}
+                    </div>
+
+                    <div class="factor-description">
+                        {text}
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="factor-impact">
+                {value:+.3f}
+            </div>
+
+        </div>
+        """
+
+
+    factors_html += "</div>"
+
+    st.html(factors_html)
+
+# ============================================================
+# FOOTER
+# ============================================================
+
+footer_html = """
+<div class="trustloan-footer">
+
+    <div class="footer-brand">
+        TRUSTLOAN AI
+        <span>·</span>
+        Intelligent Loan Eligibility Prediction
+    </div>
+
+    <div class="footer-divider"></div>
+
+    <div class="footer-disclaimer">
+        Academic Machine Learning Prototype
+    </div>
+
+    <div class="footer-note">
+        Predictions are estimates generated by a machine-learning model
+        and should not be treated as actual lending decisions.
+    </div>
+
+    <div class="footer-tech">
+        Explainable AI
+        <span>·</span>
+        SHAP
+        <span>·</span>
+        Machine Learning
+    </div>
+
+</div>
+"""
+
+st.html(footer_html)

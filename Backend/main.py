@@ -8,7 +8,7 @@ from routes.phase2 import router as phase2_router
 app = FastAPI(title="TrustLoan AI", version="1.0.0")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:8443", "http://localhost:5173"],
+    allow_origins=["http://localhost:8443", "http://localhost:5173","https://trustloan-ai.vercel.app",],
     allow_credentials=True,
     allow_methods=["GET", "POST"],
     allow_headers=["*"],

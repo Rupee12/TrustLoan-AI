@@ -20,20 +20,38 @@ export function toLoanPayload(data: FormData) {
 
 export async function runPrediction(data: FormData): Promise<PredictionResult> {
   let response: Response;
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 90000);
+
   try {
     response = await fetch(`${API_BASE_URL}/api/predict`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(toLoanPayload(data)),
+      signal: controller.signal,
     });
-  } catch {
-    throw new Error('The prediction service is unavailable. Start the FastAPI backend and try again.');
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('The prediction service took too long to wake up. Please try again.');
+    }
+    throw new Error('Could not connect to the prediction service. Check your connection and try again.');
+  } finally {
+    window.clearTimeout(timeout);
   }
 
   const body: unknown = await response.json().catch(() => null);
   if (!response.ok) {
     const detail = typeof body === 'object' && body !== null && 'detail' in body ? body.detail : null;
-    throw new Error(typeof detail === 'string' ? detail : 'The backend rejected this application.');
+    if (response.status === 404) {
+      throw new Error('Prediction endpoint not found (HTTP 404). Please verify the deployed backend URL.');
+    }
+    if (response.status === 422) {
+      throw new Error(typeof detail === 'string' ? `Application validation failed (HTTP 422): ${detail}` : 'Application validation failed (HTTP 422).');
+    }
+    if (response.status >= 500) {
+      throw new Error(typeof detail === 'string' ? `Prediction service error (HTTP ${response.status}): ${detail}` : `Prediction service error (HTTP ${response.status}).`);
+    }
+    throw new Error(typeof detail === 'string' ? `Request failed (HTTP ${response.status}): ${detail}` : `Request failed (HTTP ${response.status}).`);
   }
 
   if (

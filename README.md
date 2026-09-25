@@ -53,7 +53,7 @@ npm install
 npm run dev
 ```
 
-The client uses `http://127.0.0.1:8000` by default. Set `VITE_API_BASE_URL` to override it.
+The client uses `https://trustloan-ai.onrender.com` by default. Set `VITE_API_BASE_URL` to override it, for example `http://127.0.0.1:8000` for local backend development.
 
 ## Validation
 

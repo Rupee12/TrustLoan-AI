@@ -415,6 +415,7 @@ export default function Eligibility({ formData, setFormData, onComplete, onNavig
           </div>
         )}
 
+        {isLoading && <div className="glass-bright border border-indigo-500/30 rounded-xl p-3 mt-5 text-sm text-indigo-200">Waking up the prediction service. This may take up to a minute...</div>}
         {error && <div className="glass-bright border border-red-500/30 rounded-xl p-3 mt-5 text-sm text-red-300">{error}</div>}
 
         {/* Navigation buttons */}

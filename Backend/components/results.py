@@ -93,6 +93,7 @@ def render_prediction_result(
     """
 
     st.html(result_html)
+    st.text("AI ASSESSMENT")
 
 
 # ============================================================
@@ -172,6 +173,7 @@ def render_probability(
     """
 
     st.html(probability_html)
+    st.text("APPROVAL PROBABILITY")
 
 
 # ============================================================

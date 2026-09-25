@@ -1,0 +1,16 @@
+streamlit
+pandas
+numpy
+scikit-learn
+joblib
+shap
+matplotlib
+xgboost
+fastapi
+uvicorn[standard]
+pydantic
+pytest
+httpx2
+reportlab
+python-dotenv
+google-genai

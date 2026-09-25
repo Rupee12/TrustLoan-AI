@@ -1,0 +1,10 @@
+{
+  "description": "An AI-powered platform that predicts loan eligibility with explainable insights, interactive what-if analysis, and personalized financial advice for smarter decisions.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}

@@ -1,28 +1,10 @@
-# Python virtual environment
-venv/
-.venv/
-env/
-
-# Python cache
-__pycache__/
-*.py[cod]
-
-# Pytest
-.pytest_cache/
-
-# Environment / secrets
 .env
 .env.*
-.streamlit/secrets.toml
-
-# IDE
-.vscode/
-.idea/
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Temporary files
-*.log
-*.tmp
+!.env.example
+__pycache__/
+.pytest_cache/
+*.py[cod]
+Frontend/dist/
+Frontend/node_modules/
+Backend/.venv/
+Backend/venv/

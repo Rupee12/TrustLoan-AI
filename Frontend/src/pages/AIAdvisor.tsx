@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import type { FormData, Page, PredictionResult } from '../types';
 import type { WhatIfComparison } from '../types';
 import { formatCurrency } from '../utils/predict';
-import { requestAdvisor } from '../utils/phase2';
+import { requestAdvisor, requestAssistantChat, toLoanPayload } from '../utils/phase2';
 
 interface AIAdvisorProps {
   result: PredictionResult | null;
@@ -91,6 +91,7 @@ export default function AIAdvisor({ result, formData, whatIf, onNavigate }: AIAd
   ]);
   const [input, setInput] = useState('');
   const [typing, setTyping] = useState(false);
+  const [chatProfile, setChatProfile] = useState<Record<string, unknown>>({});
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -109,15 +110,35 @@ export default function AIAdvisor({ result, formData, whatIf, onNavigate }: AIAd
     setInput('');
     setTyping(true);
     try {
-      const response = result
-        ? await requestAdvisor({ question: text.trim(), result, formData, whatIf })
-        : { configured: false, message: 'AI Advisor is not configured. Complete an assessment first.' };
+      const assistant = await requestAssistantChat({
+        message: text.trim(),
+        ...(result ? {
+          profile: { ...toLoanPayload(formData) },
+          prediction: {
+            prediction: result.prediction,
+            probability: result.probability,
+            risk_score: result.riskScore,
+          },
+        } : { profile: chatProfile }),
+        conversation: messages.slice(-19).map((message) => ({
+          role: message.role === 'ai' ? 'assistant' as const : 'user' as const,
+          content: message.content,
+        })),
+      });
+      setChatProfile(assistant.profile);
+      let content = assistant.response;
+      if (assistant.intent === 'EXPLAIN_PREDICTION' && result) {
+        const response = await requestAdvisor({ question: text.trim(), result, formData, whatIf });
+        content = response.configured
+          ? response.explanation ?? 'The advisor returned no explanation.'
+          : `${response.message ?? 'AI Advisor is not configured.'} ${assistant.response}`;
+      }
       setMessages((prev) => [
         ...prev,
         {
           id: (Date.now() + 1).toString(),
           role: 'ai',
-          content: response.configured ? response.explanation ?? 'The advisor returned no explanation.' : response.message ?? 'AI Advisor is not configured.',
+          content,
           timestamp: new Date(),
         },
       ]);

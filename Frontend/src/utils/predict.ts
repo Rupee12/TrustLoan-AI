@@ -2,6 +2,10 @@ import type { FormData, PredictionResult } from '../types';
 
 import { API_BASE_URL } from './phase2';
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 export function toLoanPayload(data: FormData) {
   return {
     no_of_dependents: data.dependents,
@@ -41,7 +45,7 @@ export async function runPrediction(data: FormData): Promise<PredictionResult> {
 
   const body: unknown = await response.json().catch(() => null);
   if (!response.ok) {
-    const detail = typeof body === 'object' && body !== null && 'detail' in body ? body.detail : null;
+    const detail = isRecord(body) ? body.detail : null;
     if (response.status === 404) {
       throw new Error('Prediction endpoint not found (HTTP 404). Please verify the deployed backend URL.');
     }
@@ -55,8 +59,7 @@ export async function runPrediction(data: FormData): Promise<PredictionResult> {
   }
 
   if (
-    typeof body !== 'object' ||
-    body === null ||
+    !isRecord(body) ||
     typeof body.probability !== 'number' ||
     typeof body.eligible !== 'boolean' ||
     typeof body.risk_score !== 'number' ||
@@ -73,11 +76,11 @@ export async function runPrediction(data: FormData): Promise<PredictionResult> {
     riskCategory: body.risk_category as PredictionResult['riskCategory'],
     shapValues: Array.isArray(body.shap_values)
       ? body.shap_values
-          .filter((value): value is { feature: string; value: number; raw_value: string | number; direction: 'positive' | 'negative' } =>
-            typeof value === 'object' &&
-            value !== null &&
+          .filter((value: unknown): value is { feature: string; value: number; raw_value: string | number; direction: 'positive' | 'negative' } =>
+            isRecord(value) &&
             typeof value.feature === 'string' &&
             typeof value.value === 'number' &&
+            (typeof value.raw_value === 'string' || typeof value.raw_value === 'number') &&
             (value.direction === 'positive' || value.direction === 'negative'),
           )
           .map((value) => ({

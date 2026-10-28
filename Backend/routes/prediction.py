@@ -15,6 +15,7 @@ def predict(application: LoanApplication) -> dict:
             result["shap_values"] = explain(application)
         except Exception:
             result["shap_values"] = []
+            result["shap_warning"] = "SHAP explanation is currently unavailable."
         return result
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail="Prediction service is unavailable.") from exc

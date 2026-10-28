@@ -17,7 +17,48 @@ export interface NlpFields {
 }
 
 export interface NlpResponse extends NlpFields {
+  income_monthly: number | null;
+  loan_purpose: string | null;
+  confidence: Record<string, number>;
+  ambiguous_fields: string[];
+  validation_errors: string[];
   missing_required_fields: string[];
+  requires_confirmation: boolean;
+}
+
+export interface LenderCriterion {
+  criterion: string;
+  status: 'match' | 'mismatch' | 'unknown';
+  explanation: string;
+  source_url: string | null;
+}
+
+export interface LenderMatch {
+  lender_id: string;
+  lender_name: string;
+  category: 'personal_loan';
+  status: string;
+  criteria: LenderCriterion[];
+  unknown_criteria: string[];
+  product_url: string;
+  application_url: string | null;
+  last_verified: string;
+  caveat: string;
+}
+
+export interface EmiResult {
+  monthly_emi: number;
+  total_payment: number;
+  total_interest: number;
+}
+
+export interface KnowledgeResult {
+  title: string;
+  category: string;
+  excerpt: string;
+  source_url: string | null;
+  verified_at: string;
+  relevance: number;
 }
 
 export function toLoanPayload(data: FormData): NlpFields {
@@ -45,6 +86,89 @@ export async function extractNlp(text: string): Promise<NlpResponse> {
   const body = await response.json().catch(() => null);
   if (!response.ok) throw new Error(typeof body?.detail === 'string' ? body.detail : 'Unable to extract application fields.');
   return body as NlpResponse;
+}
+
+export async function matchLenders(data: FormData): Promise<LenderMatch[]> {
+  const response = await fetch(`${API_BASE_URL}/api/lenders/match`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      loan_category: 'personal_loan',
+      loan_amount: data.loanAmount,
+      loan_term: data.loanTerm,
+      self_employed: data.selfEmployed,
+    }),
+  });
+  const body = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(typeof body?.detail === 'string' ? body.detail : 'Unable to compare published lender criteria.');
+  return body.matches as LenderMatch[];
+}
+
+export async function calculateEmi(
+  principal: number,
+  annualInterestRate: number,
+  tenureMonths: number,
+): Promise<EmiResult> {
+  const response = await fetch(`${API_BASE_URL}/api/emi/calculate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      principal,
+      annual_interest_rate: annualInterestRate,
+      tenure_months: tenureMonths,
+    }),
+  });
+  const body = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(typeof body?.detail === 'string' ? body.detail : 'Unable to calculate EMI.');
+  return body as EmiResult;
+}
+
+export async function searchKnowledge(query: string): Promise<{
+  answer: string;
+  results: KnowledgeResult[];
+}> {
+  const response = await fetch(`${API_BASE_URL}/api/knowledge/search?query=${encodeURIComponent(query)}`);
+  const body = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(typeof body?.detail === 'string' ? body.detail : 'Unable to search verified information.');
+  return body as { answer: string; results: KnowledgeResult[] };
+}
+
+export async function answerKnowledge(query: string): Promise<{
+  configured: boolean;
+  answer: string | null;
+  message: string | null;
+  results: KnowledgeResult[];
+}> {
+  const response = await fetch(`${API_BASE_URL}/api/knowledge/answer`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query }),
+  });
+  const body = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(typeof body?.detail === 'string' ? body.detail : 'Unable to answer from retrieved sources.');
+  return body;
+}
+
+export async function requestAssistantChat(data: {
+  message: string;
+  profile?: Record<string, unknown>;
+  prediction?: Record<string, unknown>;
+  conversation?: { role: 'user' | 'assistant'; content: string }[];
+}): Promise<{
+  intent: string;
+  response: string;
+  follow_up_question: string | null;
+  requires_user_input: boolean;
+  profile: Record<string, unknown>;
+}> {
+  const response = await fetch(`${API_BASE_URL}/api/assistant/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  const body = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(typeof body?.detail === 'string' ? body.detail : 'The assistant is unavailable.');
+  return body;
 }
 
 export async function requestAdvisor(data: {

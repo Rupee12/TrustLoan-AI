@@ -3,6 +3,7 @@ import type { FormData, Page } from '../types';
 import { defaultFormData } from '../types';
 import { formatCurrency } from '../utils/predict';
 import NlpApplication from '../components/NlpApplication';
+import type { NlpResponse } from '../utils/phase2';
 
 interface EligibilityProps {
   formData: FormData;
@@ -190,15 +191,59 @@ const steps = ['Personal Profile', 'Financial Information', 'Loan Details'];
 
 export default function Eligibility({ formData, setFormData, onComplete, onNavigate, isLoading, error }: EligibilityProps) {
   const [step, setStep] = useState(0);
+  const [extractionReview, setExtractionReview] = useState<string | null>(null);
 
   const update = <K extends keyof FormData>(key: K, val: FormData[K]) =>
     setFormData({ ...formData, [key]: val });
+
+  const applyExtracted = (fields: NlpResponse) => {
+    const annualIncomeIsUnambiguous = !fields.ambiguous_fields.includes('income_annum');
+    setFormData({
+      ...formData,
+      dependents: fields.no_of_dependents ?? formData.dependents,
+      education: fields.education ?? formData.education,
+      selfEmployed: fields.self_employed === null ? formData.selfEmployed : fields.self_employed === 'Yes',
+      annualIncome: fields.income_annum !== null && annualIncomeIsUnambiguous
+        ? fields.income_annum
+        : formData.annualIncome,
+      cibilScore: fields.cibil_score !== null && fields.cibil_score >= 300 && fields.cibil_score <= 900
+        ? fields.cibil_score
+        : formData.cibilScore,
+      residentialAssets: fields.residential_assets_value ?? formData.residentialAssets,
+      commercialAssets: fields.commercial_assets_value ?? formData.commercialAssets,
+      luxuryAssets: fields.luxury_assets_value ?? formData.luxuryAssets,
+      bankAssets: fields.bank_asset_value ?? formData.bankAssets,
+      loanAmount: fields.loan_amount !== null && fields.loan_amount > 0
+        ? fields.loan_amount
+        : formData.loanAmount,
+      loanTerm: fields.loan_term !== null && fields.loan_term > 0
+        ? fields.loan_term
+        : formData.loanTerm,
+    });
+    setExtractionReview(
+      `${fields.missing_required_fields.length} required model field(s) were not extracted. Existing form values were left unchanged; review all three steps before submitting.`,
+    );
+    setStep(0);
+  };
 
   const totalAssets =
     formData.residentialAssets +
     formData.commercialAssets +
     formData.luxuryAssets +
     formData.bankAssets;
+  const standardLoanTerms = [
+    { value: '1', label: '1 year' },
+    { value: '2', label: '2 years' },
+    { value: '3', label: '3 years' },
+    { value: '5', label: '5 years' },
+    { value: '7', label: '7 years' },
+    { value: '10', label: '10 years' },
+    { value: '15', label: '15 years' },
+    { value: '20', label: '20 years' },
+  ];
+  const loanTermOptions = standardLoanTerms.some((option) => Number(option.value) === formData.loanTerm)
+    ? standardLoanTerms
+    : [...standardLoanTerms, { value: String(formData.loanTerm), label: `${formData.loanTerm} years (extracted)` }];
 
   return (
     <div className="min-h-screen px-4 py-10 lg:px-8">
@@ -215,7 +260,12 @@ export default function Eligibility({ formData, setFormData, onComplete, onNavig
           <p className="text-slate-400 text-sm">Complete the form to receive your AI-powered eligibility prediction.</p>
         </div>
 
-        <NlpApplication onAnalyze={onComplete} />
+        <NlpApplication onApply={applyExtracted} />
+        {extractionReview && (
+          <div role="status" className="rounded-xl border border-amber-400/20 bg-amber-500/10 p-4 mb-5 text-xs text-amber-200">
+            {extractionReview}
+          </div>
+        )}
 
         {/* Step indicator */}
         <div className="glass rounded-2xl p-6 mb-6">
@@ -378,16 +428,7 @@ export default function Eligibility({ formData, setFormData, onComplete, onNavig
               <SelectInput
                 value={String(formData.loanTerm)}
                 onChange={(v) => update('loanTerm', Number(v))}
-                options={[
-                  { value: '1', label: '1 year' },
-                  { value: '2', label: '2 years' },
-                  { value: '3', label: '3 years' },
-                  { value: '5', label: '5 years' },
-                  { value: '7', label: '7 years' },
-                  { value: '10', label: '10 years' },
-                  { value: '15', label: '15 years' },
-                  { value: '20', label: '20 years' },
-                ]}
+                options={loanTermOptions}
               />
             </div>
 

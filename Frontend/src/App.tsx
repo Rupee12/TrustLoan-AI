@@ -14,6 +14,7 @@ import ModelInsights from './pages/ModelInsights';
 import ResponsibleAI from './pages/ResponsibleAI';
 import Report from './pages/Report';
 import About from './pages/About';
+import FinanceTools from './pages/FinanceTools';
 
 export default function App() {
   const [page, setPage] = useState<Page>('home');
@@ -33,6 +34,7 @@ export default function App() {
     setError(null);
     try {
       const r = await runPrediction(application);
+      setFormData(application);
       setResult(r);
       navigate('result');
     } catch (err) {
@@ -102,6 +104,7 @@ export default function App() {
           <WhatIf result={result} formData={formData} onNavigate={navigate} onSimulationComplete={setWhatIfResult} />
         )}
         {page === 'insights' && <ModelInsights onNavigate={navigate} />}
+        {page === 'finance' && <FinanceTools formData={formData} onNavigate={navigate} />}
         {page === 'responsible' && <ResponsibleAI onNavigate={navigate} />}
         {page === 'report' && <Report result={result} formData={formData} whatIf={whatIfResult} onNavigate={navigate} />}
         {page === 'about' && <About onNavigate={navigate} />}

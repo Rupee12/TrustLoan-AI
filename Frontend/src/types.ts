@@ -6,6 +6,7 @@ export type Page =
   | 'advisor'
   | 'whatif'
   | 'insights'
+  | 'finance'
   | 'responsible'
   | 'report'
   | 'about';
